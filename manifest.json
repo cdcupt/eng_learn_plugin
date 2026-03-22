@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "English Learning Tracker",
+  "version": "1.0.0",
+  "description": "Daily English learning tasks: reading, writing, vocabulary, speaking",
+  "permissions": ["storage", "unlimitedStorage", "alarms", "sidePanel"],
+  "host_permissions": [
+    "https://api.nytimes.com/*",
+    "https://api.anthropic.com/*",
+    "https://www.nytimes.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "chrome_url_overrides": {
+    "newtab": "src/newtab/index.html"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "action": {
+    "default_title": "English Learning Tracker"
+  },
+  "icons": {
+    "16": "src/assets/icon16.png",
+    "48": "src/assets/icon48.png",
+    "128": "src/assets/icon128.png"
+  }
+}
