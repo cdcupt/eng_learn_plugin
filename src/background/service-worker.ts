@@ -142,6 +142,47 @@ function getNextMidnight(): number {
   return midnight.getTime();
 }
 
+// Handle ByteDance TTS request from extension pages (CORS bypass)
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === "bytedance-tts") {
+    const { appId, token, voice, text, speed } = msg;
+    const reqid = crypto.randomUUID();
+
+    fetch("https://openspeech.bytedance.com/api/v1/tts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer;${token}`,
+      },
+      body: JSON.stringify({
+        app: { appid: appId, token, cluster: "volcano_tts" },
+        user: { uid: "eng_learn_extension" },
+        audio: {
+          voice_type: voice || "en_male_adam",
+          encoding: "mp3",
+          speed_ratio: speed || 1,
+          volume_ratio: 1.0,
+          pitch_ratio: 1.0,
+        },
+        request: { reqid, text, operation: "query" },
+      }),
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        if (result.code !== 3000) {
+          sendResponse({ error: `ByteDance TTS error: ${result.code} - ${result.message || "Unknown"}` });
+        } else {
+          sendResponse({ data: result.data });
+        }
+      })
+      .catch((e) => {
+        sendResponse({ error: e instanceof Error ? e.message : "ByteDance TTS fetch failed" });
+      });
+
+    return true; // keep message channel open for async sendResponse
+  }
+});
+
 // Handle save-vocab message from injected popup
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "save-vocab") {
