@@ -8,7 +8,7 @@ A Chrome extension for building daily English learning habits with 5 practice ta
 - **Writing** — Practice writing on random topics with AI feedback (grammar, style, score 0-100)
 - **Vocabulary** — Build a word list from any webpage via right-click; review with flashcard quizzes
 - **Speaking** — Daily check-in to track speaking practice
-- **Listening** — IELTS-style listening practice with HD audio (OpenAI TTS) and 5-question quizzes
+- **Listening** — IELTS-style listening practice with HD audio (OpenAI TTS or ByteDance OpenSpeech) and 5-question quizzes
 - **Streak Tracking** — Complete all 5 tasks for a perfect day; track streaks and weekly stats
 - **Side Panel** — Quick task overview and check-in without leaving your current tab
 - **Context Menu** — Select any word on a webpage → right-click → get an AI-powered explanation
@@ -20,7 +20,7 @@ A Chrome extension for building daily English learning habits with 5 practice ta
 - Vite + CRXJS (Chrome extension bundling)
 - Chrome Storage API
 - Multi-provider AI (Kimi, OpenAI, Claude, DeepSeek, Gemini)
-- OpenAI TTS for listening audio
+- OpenAI TTS or ByteDance OpenSpeech (Volcengine) for listening audio
 
 ## Setup
 
@@ -40,7 +40,9 @@ A Chrome extension for building daily English learning habits with 5 practice ta
 5. Open a new tab to see the dashboard, then go to **Settings** to configure:
    - **NYT API Key** — for reading articles ([developer.nytimes.com](https://developer.nytimes.com))
    - **AI Provider & Key** — for content generation, writing review, and word explanations
-   - **TTS API Key** (optional) — OpenAI key for HD listening audio; falls back to browser speech if not set
+   - **TTS Provider** (optional) — Choose OpenAI TTS or ByteDance OpenSpeech for HD listening audio; falls back to browser speech if not set
+     - *OpenAI:* API key + voice selection (alloy, echo, fable, onyx, nova, shimmer)
+     - *ByteDance:* App ID, access token, and cluster from [Volcengine console](https://console.volcengine.com/speech/app) + voice selection (Jackson, Ariana, etc.)
 
 ## Development
 
