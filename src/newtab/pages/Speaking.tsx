@@ -395,10 +395,10 @@ export function Speaking({ record, onUpdate, visible }: Props) {
       {state === "idle" && !isTaskDone && (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="text-gray-600 mb-2">
-            Practice speaking with AI-generated sentences featuring connected speech patterns.
+            Practice speaking with AI-generated passages featuring connected speech patterns.
           </p>
           <p className="text-sm text-gray-400 mb-6">
-            Read the sentence aloud, then get feedback on your pronunciation.
+            Read the passage aloud, then get feedback on your pronunciation.
           </p>
 
           {/* Legend */}
@@ -455,9 +455,9 @@ export function Speaking({ record, onUpdate, visible }: Props) {
             </div>
             <p className="text-sm text-gray-500 mb-4">{currentPrompt.scenario}</p>
 
-            {/* Annotated sentence */}
-            <div className="bg-gray-50 rounded-lg p-5 mb-4">
-              <p className="text-lg leading-relaxed text-gray-900">
+            {/* Annotated passage */}
+            <div className="bg-gray-50 rounded-lg p-5 mb-4 max-h-64 overflow-y-auto">
+              <p className="text-base leading-loose text-gray-900">
                 {renderAnnotatedText(currentPrompt.text, currentPrompt.annotations)}
               </p>
               <p className="text-xs text-gray-400 mt-3">
@@ -520,7 +520,7 @@ export function Speaking({ record, onUpdate, visible }: Props) {
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
             <p className="text-sm text-yellow-700">
               Tip: Listen to the reference audio first, pay attention to the connected speech
-              patterns (highlighted), then record yourself speaking naturally.
+              patterns (highlighted), then record yourself reading the full passage naturally.
             </p>
           </div>
 

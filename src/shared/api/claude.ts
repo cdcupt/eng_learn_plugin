@@ -432,13 +432,13 @@ export async function generateSpeakingPrompt(): Promise<SpeakingPromptResult> {
   const topic = SPEAKING_TOPICS[Math.floor(Math.random() * SPEAKING_TOPICS.length)];
 
   const system = `You are an English pronunciation coach specializing in connected speech patterns.
-Generate a single natural English sentence (15-25 words) for a speaking practice scenario.
+Generate a natural English passage (80-150 words, 4-8 sentences) for a speaking practice scenario. The passage should read like a short monologue or one side of a conversation — natural, flowing, and realistic.
 
 You MUST respond with valid JSON only, no markdown fences, in this exact format:
 {
   "topic": "Short topic label",
   "scenario": "Brief scenario description (1 sentence)",
-  "text": "The sentence to practice (natural spoken English, 15-25 words)",
+  "text": "The full passage to practice (natural spoken English, 80-150 words, 4-8 sentences). Use contractions, filler words, and natural phrasing as a native speaker would.",
   "annotations": [
     {
       "startIndex": 0,
@@ -461,11 +461,11 @@ Connected speech types to annotate:
 - "intrusion": inserted linking sounds (e.g., "go on" → "go-w-on")
 
 CRITICAL: startIndex and endIndex must be exact character positions in the "text" field. text.substring(startIndex, endIndex) must equal the "written" field exactly.
-Include 2-5 annotations per sentence. Focus on the most natural and common connected speech patterns.`;
+Include 6-12 annotations spread across the passage. Focus on the most natural and common connected speech patterns. Aim for variety — don't annotate only one type.`;
 
   const text = await callWithSettings(
     system,
-    `Generate a speaking practice sentence about: ${topic}`
+    `Generate a speaking practice passage about: ${topic}`
   );
 
   try {
