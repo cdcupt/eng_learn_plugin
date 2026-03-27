@@ -58,8 +58,13 @@ export function Speaking({ record, onUpdate, visible }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStoppedRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const webSpeechRef = useRef<any>(null);
+  const webSpeechTranscriptRef = useRef("");
+  const recordingModeRef = useRef<"bytedance" | "webspeech">("bytedance");
 
   const completedCount = record.speaking?.practicesCompleted ?? 0;
   const isTaskDone = record.speaking?.completed ?? false;
@@ -189,10 +194,23 @@ export function Speaking({ record, onUpdate, visible }: Props) {
 
   async function handleStartRecording() {
     setError(null);
+
+    // Check if ByteDance ASR is configured; if not, start live Web Speech recognition
+    const settings = await getSettings();
+    const hasAsrCredentials = !!(settings?.bytedanceAppId?.trim() && settings?.bytedanceToken?.trim());
+
+    if (!hasAsrCredentials) {
+      // Use live Web Speech API — records and transcribes simultaneously
+      startWebSpeechRecording();
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       audioChunksRef.current = [];
+      recordingStoppedRef.current = false;
+      recordingModeRef.current = "bytedance";
 
       const recorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -210,6 +228,7 @@ export function Speaking({ record, onUpdate, visible }: Props) {
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
+        recordingStoppedRef.current = true;
       };
 
       mediaRecorderRef.current = recorder;
@@ -226,42 +245,120 @@ export function Speaking({ record, onUpdate, visible }: Props) {
     }
   }
 
-  async function handleStopRecording() {
-    if (!mediaRecorderRef.current || !currentPrompt) return;
+  function startWebSpeechRecording() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionCtor =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
-    setState("evaluating");
-    mediaRecorderRef.current.stop();
-
-    // Wait for all chunks to be collected
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+    if (!SpeechRecognitionCtor) {
+      setError("Speech recognition not supported in this browser. Please configure ByteDance ASR in Settings.");
+      return;
+    }
 
     try {
-      const settings = await getSettings();
-      let transcription = "";
+      const recognition = new SpeechRecognitionCtor();
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
 
-      // Try ByteDance ASR
-      const appId = settings?.bytedanceAppId?.trim();
-      const token = settings?.bytedanceToken?.trim();
-      const asrCluster = settings?.bytedanceAsrCluster?.trim();
+      webSpeechTranscriptRef.current = "";
 
-      if (appId && token) {
-        // Convert blob to base64
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        transcription = await recognizeSpeechBytedance(
-          base64,
-          appId,
-          token,
-          asrCluster || "volcano_auc",
-          "wav"
-        );
-      } else {
-        // Fallback to Web Speech API
-        transcription = await recognizeWithWebSpeech(audioBlob);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript + " ";
+          }
+        }
+        webSpeechTranscriptRef.current = transcript.trim();
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (event: any) => {
+        console.warn("[Web Speech] Error:", event.error);
+        if (event.error === "not-allowed") {
+          setError("Microphone permission denied. Please allow microphone access.");
+          setState("practice");
+        }
+      };
+
+      webSpeechRef.current = recognition;
+      recordingModeRef.current = "webspeech";
+      recognition.start();
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+      setState("recording");
+    } catch (e) {
+      setError("Failed to start speech recognition. Please check your microphone.");
+    }
+  }
+
+  async function handleStopRecording() {
+    if (!currentPrompt) return;
+
+    setState("evaluating");
+
+    let transcription = "";
+
+    if (recordingModeRef.current === "webspeech") {
+      // Stop Web Speech API recognition
+      if (webSpeechRef.current) {
+        webSpeechRef.current.stop();
+        // Small delay to let final results come in
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        transcription = webSpeechTranscriptRef.current;
+        webSpeechRef.current = null;
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    } else {
+      // Stop MediaRecorder for ByteDance ASR
+      if (!mediaRecorderRef.current) return;
+      mediaRecorderRef.current.stop();
+
+      // Wait for onstop callback to confirm all chunks are collected
+      while (!recordingStoppedRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
       }
 
+      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+
+      try {
+        const settings = await getSettings();
+        const appId = settings?.bytedanceAppId?.trim();
+        const token = settings?.bytedanceToken?.trim();
+        const asrCluster = settings?.bytedanceAsrCluster?.trim();
+
+        if (appId && token) {
+          // Convert blob to base64 in chunks (safe for large audio files)
+          const arrayBuffer = await audioBlob.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          let binaryStr = "";
+          for (let i = 0; i < bytes.length; i += 8192) {
+            binaryStr += String.fromCharCode.apply(null, Array.from(bytes.slice(i, i + 8192)));
+          }
+          const base64 = btoa(binaryStr);
+          transcription = await recognizeSpeechBytedance(
+            base64,
+            appId,
+            token,
+            asrCluster || "volcano_auc",
+            "mp3"
+          );
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to process recording");
+        setState("practice");
+        return;
+      }
+    }
+
+    try {
       if (!transcription.trim()) {
         setError("Could not recognize any speech. Please try speaking more clearly.");
         setState("practice");
@@ -653,42 +750,3 @@ export function Speaking({ record, onUpdate, visible }: Props) {
   );
 }
 
-// Fallback: Web Speech API recognition (live, ignores pre-recorded blob)
-function recognizeWithWebSpeech(_audioBlob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionCtor =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognitionCtor) {
-      reject(new Error("Speech recognition not supported. Please configure ByteDance ASR in Settings."));
-      return;
-    }
-
-    const recognition = new SpeechRecognitionCtor();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    let resolved = false;
-
-    recognition.onresult = (event: any) => {
-      resolved = true;
-      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
-      resolve(transcript);
-    };
-
-    recognition.onerror = (event: any) => {
-      if (!resolved) {
-        reject(new Error(`Speech recognition error: ${event.error}`));
-      }
-    };
-
-    recognition.onend = () => {
-      if (!resolved) resolve("");
-    };
-
-    recognition.start();
-  });
-}
