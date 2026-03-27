@@ -216,6 +216,60 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
+// Handle ByteDance ASR (speech recognition) request from extension pages (CORS bypass)
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === "bytedance-asr") {
+    const { appId, token, cluster, audioBase64, audioFormat } = msg;
+
+    async function recognize(): Promise<string> {
+      const reqid = crypto.randomUUID();
+      const payload = {
+        app: { appid: String(appId), token: String(token), cluster: String(cluster || "volcano_auc") },
+        user: { uid: "eng_learn_extension" },
+        audio: {
+          format: String(audioFormat || "wav"),
+          bits: 16,
+          sample_rate: 16000,
+          channel: 1,
+          language: "en-US",
+        },
+        request: {
+          reqid,
+          nbest: 1,
+          workflow: "audio_in,restext",
+          sequence: -1,
+          audio: audioBase64,
+        },
+      };
+      console.log("[ByteDance ASR] Request:", JSON.stringify({ ...payload, app: { ...payload.app, token: "***" }, request: { ...payload.request, audio: `<${audioBase64.length} chars>` } }));
+      const res = await fetch("https://openspeech.bytedance.com/api/v1/asr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer;${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      console.log("[ByteDance ASR] Response:", result.code, result.message);
+      if (result.code !== 3000) {
+        throw new Error(`${result.code} - ${result.message || "Unknown"}`);
+      }
+      // Extract transcription text from result
+      const text = result.result?.[0]?.text ?? result.result?.text ?? result.data ?? "";
+      return text;
+    }
+
+    recognize()
+      .then((text) => sendResponse({ text }))
+      .catch((e) => {
+        sendResponse({ error: `ByteDance ASR error: ${e instanceof Error ? e.message : "Unknown"}` });
+      });
+
+    return true; // keep message channel open for async sendResponse
+  }
+});
+
 // Handle save-vocab message from injected popup
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "save-vocab") {

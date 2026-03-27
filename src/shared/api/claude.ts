@@ -387,3 +387,165 @@ export async function generateBytedanceSpeechAudio(
   const blob = new Blob([bytes], { type: "audio/mpeg" });
   return URL.createObjectURL(blob);
 }
+
+// --- Speaking Practice ---
+
+export interface SpeakingPromptResult {
+  topic: string;
+  scenario: string;
+  text: string;
+  annotations: {
+    startIndex: number;
+    endIndex: number;
+    type: "linking" | "elision" | "assimilation" | "reduction" | "contraction" | "intrusion";
+    written: string;
+    spoken: string;
+    explanation: string;
+  }[];
+  difficulty: "beginner" | "intermediate" | "advanced";
+}
+
+const SPEAKING_TOPICS = [
+  "ordering food at a restaurant",
+  "asking for directions in a new city",
+  "making a phone call to schedule an appointment",
+  "introducing yourself at a social gathering",
+  "discussing weekend plans with a friend",
+  "checking in at a hotel",
+  "talking to a coworker about a project",
+  "shopping for clothes and asking about sizes",
+  "describing your daily routine",
+  "sharing your opinion about a movie",
+  "calling customer service about a problem",
+  "making small talk with a neighbor",
+  "explaining your job to someone new",
+  "discussing the weather and seasons",
+  "ordering coffee and making small talk with the barista",
+  "talking about your favorite hobby",
+  "asking for recommendations at a bookstore",
+  "discussing travel experiences",
+  "giving someone advice about a problem",
+  "negotiating a price at a market",
+];
+
+export async function generateSpeakingPrompt(): Promise<SpeakingPromptResult> {
+  const topic = SPEAKING_TOPICS[Math.floor(Math.random() * SPEAKING_TOPICS.length)];
+
+  const system = `You are an English pronunciation coach specializing in connected speech patterns.
+Generate a single natural English sentence (15-25 words) for a speaking practice scenario.
+
+You MUST respond with valid JSON only, no markdown fences, in this exact format:
+{
+  "topic": "Short topic label",
+  "scenario": "Brief scenario description (1 sentence)",
+  "text": "The sentence to practice (natural spoken English, 15-25 words)",
+  "annotations": [
+    {
+      "startIndex": 0,
+      "endIndex": 10,
+      "type": "linking",
+      "written": "the exact substring from text",
+      "spoken": "how it sounds in natural speech",
+      "explanation": "Why this connected speech pattern occurs"
+    }
+  ],
+  "difficulty": "intermediate"
+}
+
+Connected speech types to annotate:
+- "linking": consonant-vowel linking across words (e.g., "an apple" → "a-napple")
+- "elision": dropped sounds (e.g., "next day" → "nex' day", /t/ dropped)
+- "assimilation": sound changes at word boundaries (e.g., "don't you" → "donchu")
+- "reduction": weak forms of function words (e.g., "to" → "tuh", "and" → "'n")
+- "contraction": contracted forms (e.g., "I would have" → "I'd've")
+- "intrusion": inserted linking sounds (e.g., "go on" → "go-w-on")
+
+CRITICAL: startIndex and endIndex must be exact character positions in the "text" field. text.substring(startIndex, endIndex) must equal the "written" field exactly.
+Include 2-5 annotations per sentence. Focus on the most natural and common connected speech patterns.`;
+
+  const text = await callWithSettings(
+    system,
+    `Generate a speaking practice sentence about: ${topic}`
+  );
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Failed to generate speaking prompt. Please try again.");
+  }
+}
+
+export interface PronunciationEvalResult {
+  overallComment: string;
+  accuracyScore: number;
+  fluencyScore: number;
+  pronunciationNotes: { word: string; issue: string; suggestion: string }[];
+}
+
+export async function evaluatePronunciation(
+  targetText: string,
+  userTranscription: string
+): Promise<PronunciationEvalResult> {
+  const system = `You are an English pronunciation evaluator. Compare the target sentence with what was recognized from the learner's speech.
+
+You MUST respond with valid JSON only, no markdown fences, in this exact format:
+{
+  "overallComment": "Brief encouraging feedback (1-2 sentences)",
+  "accuracyScore": 85,
+  "fluencyScore": 80,
+  "pronunciationNotes": [
+    {
+      "word": "specific word or phrase",
+      "issue": "what was wrong or unclear",
+      "suggestion": "how to improve"
+    }
+  ]
+}
+
+Scoring guide:
+- accuracyScore (0-100): How closely the recognized text matches the target. 100 = perfect match. Penalize missing/wrong words.
+- fluencyScore (0-100): Based on natural flow, connected speech usage, and overall intelligibility. Consider that ASR may not perfectly capture connected speech — if words are approximately correct, give benefit of the doubt.
+
+Be encouraging but honest. If the transcription is very close, give high scores. Include 0-3 pronunciation notes for the most important improvements.`;
+
+  const text = await callWithSettings(
+    system,
+    `Target sentence: "${targetText}"\n\nRecognized from speech: "${userTranscription}"`
+  );
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      overallComment: "Could not evaluate pronunciation. Please try again.",
+      accuracyScore: 0,
+      fluencyScore: 0,
+      pronunciationNotes: [],
+    };
+  }
+}
+
+// --- Speech Recognition via ByteDance OpenSpeech API ---
+
+export async function recognizeSpeechBytedance(
+  audioBase64: string,
+  appId: string,
+  token: string,
+  cluster: string = "volcano_auc",
+  audioFormat: string = "wav"
+): Promise<string> {
+  const response = await chrome.runtime.sendMessage({
+    type: "bytedance-asr",
+    appId,
+    token,
+    cluster,
+    audioBase64,
+    audioFormat,
+  });
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  return response.text ?? "";
+}

@@ -7,7 +7,7 @@ A Chrome extension for building daily English learning habits with 5 practice ta
 - **Reading** — Read NYT articles and take AI-generated comprehension quizzes
 - **Writing** — Practice writing on random topics with AI feedback (grammar, style, score 0-100)
 - **Vocabulary** — Build a word list from any webpage via right-click; review with flashcard quizzes
-- **Speaking** — Daily check-in to track speaking practice
+- **Speaking** — AI-generated sentences with connected speech annotations (linking, elision, assimilation, reduction, contraction, intrusion), reference audio, record yourself speaking, pronunciation evaluated via ByteDance ASR + AI scoring (accuracy & fluency)
 - **Listening** — IELTS-style listening practice with HD audio (OpenAI TTS or ByteDance OpenSpeech) and 5-question quizzes
 - **Streak Tracking** — Complete all 5 tasks for a perfect day; track streaks and weekly stats
 - **Side Panel** — Quick task overview and check-in without leaving your current tab
@@ -20,7 +20,8 @@ A Chrome extension for building daily English learning habits with 5 practice ta
 - Vite + CRXJS (Chrome extension bundling)
 - Chrome Storage API
 - Multi-provider AI (Kimi, OpenAI, Claude, DeepSeek, Gemini)
-- OpenAI TTS or ByteDance OpenSpeech (Volcengine) for listening audio
+- OpenAI TTS or ByteDance OpenSpeech (Volcengine) for listening/speaking audio
+- ByteDance ASR (OpenSpeech) for speaking practice pronunciation verification
 
 ## Setup
 

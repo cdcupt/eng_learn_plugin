@@ -20,6 +20,8 @@ export function Settings() {
   const [bytedanceToken, setBytedanceToken] = useState("");
   const [bytedanceCluster, setBytedanceCluster] = useState("volcano_tts");
   const [bytedanceVoice, setBytedanceVoice] = useState<BytedanceVoice>("BV504_streaming");
+  const [bytedanceAsrCluster, setBytedanceAsrCluster] = useState("volcano_auc");
+  const [speakingCount, setSpeakingCount] = useState<1 | 2 | 3 | 4 | 5>(2);
   const [paused, setPaused] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showNytKey, setShowNytKey] = useState(false);
@@ -42,6 +44,8 @@ export function Settings() {
         const validVoices = ["BV001_streaming", "BV002_streaming", "BV503_streaming", "BV504_streaming"];
         const savedVoice = s.bytedanceVoice ?? "";
         setBytedanceVoice(validVoices.includes(savedVoice) ? savedVoice as BytedanceVoice : "BV504_streaming");
+        setBytedanceAsrCluster(s.bytedanceAsrCluster ?? "volcano_auc");
+        setSpeakingCount(s.dailySpeakingCount ?? 2);
         setPaused(s.paused ?? false);
         if (s.aiProvider) {
           setProvider(s.aiProvider.provider);
@@ -79,8 +83,10 @@ export function Settings() {
       bytedanceToken,
       bytedanceCluster,
       bytedanceVoice,
+      bytedanceAsrCluster,
       dailyArticleCount: articleCount,
       dailyListeningCount: listeningCount,
+      dailySpeakingCount: speakingCount,
       installedDate: existing?.installedDate ?? getTodayKey(),
       paused,
     });
@@ -373,6 +379,21 @@ export function Settings() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ASR Cluster (Speech Recognition)
+                </label>
+                <input
+                  type="text"
+                  value={bytedanceAsrCluster}
+                  onChange={(e) => setBytedanceAsrCluster(e.target.value)}
+                  placeholder="volcano_auc"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Used for speaking practice pronunciation verification
+                </p>
+              </div>
             </>
           )}
         </div>
@@ -406,6 +427,26 @@ export function Settings() {
             value={listeningCount}
             onChange={(e) =>
               setListeningCount(Number(e.target.value) as 1 | 2 | 3 | 4 | 5)
+            }
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n} {n === 1 ? "practice" : "practices"} per day
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Daily Speaking Practices */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Daily Speaking Practices
+          </label>
+          <select
+            value={speakingCount}
+            onChange={(e) =>
+              setSpeakingCount(Number(e.target.value) as 1 | 2 | 3 | 4 | 5)
             }
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >

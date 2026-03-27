@@ -25,7 +25,7 @@ A Chrome/Chromium browser extension that helps users build consistent English le
 
 ```
 src/
-├── background/service-worker.ts     # Extension lifecycle, badge, context menu, alarms, ByteDance TTS proxy
+├── background/service-worker.ts     # Extension lifecycle, badge, context menu, alarms, ByteDance TTS/ASR proxy
 ├── content/explain.ts               # Content script for word explanation popup
 ├── newtab/                          # Main dashboard (new tab page)
 │   ├── main.tsx, App.tsx            # Entry point & router
@@ -42,7 +42,7 @@ src/
 │       ├── ArticleReader.tsx        # Full article view + quiz
 │       ├── Writing.tsx              # Writing prompt + AI feedback
 │       ├── Vocabulary.tsx           # Word list, quiz, check-in
-│       ├── Speaking.tsx             # Speaking check-in only
+│       ├── Speaking.tsx             # Speaking practice with connected speech annotations, recording, ASR + AI eval (always mounted)
 │       ├── Listening.tsx            # IELTS-style listening practice with HD audio + quiz (always mounted)
 │       ├── PracticesHistory.tsx     # Historical view by date
 │       ├── WeeklySummary.tsx        # Weekly stats & charts
@@ -67,9 +67,12 @@ src/
 - **Article** — NYT article with `readAt` timestamp
 - **VocabularyEntry** — word, sentence, explanation, reviewCount, mastered flag
 - **WritingEntry** — topic, content, wordCount, AI feedback (score, grammar, style, suggestions)
+- **SpeakingPrompt** — topic, scenario, text, connected speech annotations (type, written/spoken forms, explanation)
+- **SpeakingPracticeResult** — target text, user transcription (ASR), score, AI feedback (accuracy, fluency, pronunciation notes)
+- **SpeakingDayData** — stored as `speaking:{YYYY-MM-DD}`: day's prompts and practice results
 - **ListeningPractice** — title, scenario, passage, questions (5 quiz questions per practice)
 - **StreakData** — current streak, longest streak, lastPerfectDate
-- **Settings** — API keys (NYT, AI provider, TTS), TTS provider (OpenAI/ByteDance), TTS voice, ByteDance credentials (appId, token, cluster), dailyArticleCount, dailyListeningCount, installedDate
+- **Settings** — API keys (NYT, AI provider, TTS), TTS provider (OpenAI/ByteDance), TTS voice, ByteDance credentials (appId, token, cluster, asrCluster), dailyArticleCount, dailyListeningCount, dailySpeakingCount, installedDate
 
 ## Storage Keys
 
@@ -81,6 +84,7 @@ src/
 | `vocab` | VocabularyEntry[] |
 | `writingIndex` | WritingIndexItem[] (metadata) |
 | `writing:{ID}` | Full WritingEntry |
+| `speaking:{YYYY-MM-DD}` | SpeakingDayData |
 | `streak` | StreakData |
 
 ## Daily Task Flow
@@ -88,7 +92,7 @@ src/
 1. **Reading** — Fetch 1-5 NYT articles, read and take AI-generated comprehension quiz
 2. **Writing** — Random topic from 103 prompts, write 10+ words, submit for AI review (grammar, style, score)
 3. **Vocabulary** — Add words via context menu or manually; quiz mode with flashcards; check-in to complete
-4. **Speaking** — Practice externally, click check-in button to mark complete
+4. **Speaking** — AI-generated sentence with connected speech annotations (linking, elision, assimilation, reduction, contraction, intrusion), reference audio via TTS, record yourself speaking, ByteDance ASR transcribes, AI evaluates pronunciation (accuracy + fluency scores). 1-5 practices per day (configurable). Component stays mounted to preserve recording state.
 5. **Listening** — AI-generated IELTS-style passage, played via OpenAI TTS or ByteDance OpenSpeech (HD audio) or browser speech, then 5-question comprehension quiz; 1-5 practices per day (configurable). Component stays mounted to preserve state during navigation.
 6. **Streak** — All 5 tasks complete = perfect day; consecutive perfect days = streak
 
@@ -96,12 +100,13 @@ src/
 
 - **Manifest V3** with permissions: storage, unlimitedStorage, alarms, contextMenus, scripting, activeTab, sidePanel
 - **Multi-provider AI:** Supports Kimi, OpenAI, Claude, DeepSeek, Gemini — configurable in Settings
-- **HD Listening Audio:** Supports two TTS providers — OpenAI TTS (6 voices) and ByteDance OpenSpeech/Volcengine (English & Chinese voices, BV*_streaming format); 3 playback speeds; ByteDance API calls routed through service worker for CORS bypass; warns if TTS not configured
+- **HD Audio:** Supports two TTS providers — OpenAI TTS (6 voices) and ByteDance OpenSpeech/Volcengine (English & Chinese voices, BV*_streaming format); 3 playback speeds; ByteDance API calls routed through service worker for CORS bypass; warns if TTS not configured
+- **Speech Recognition:** ByteDance ASR (OpenSpeech) via service worker proxy for speaking practice pronunciation verification; falls back to Web Speech API if ByteDance not configured
 - **Context menu:** Right-click selected text → "Explain..." → floating draggable popup with AI explanation → "Add to Vocabulary"
 - **Badge:** Shows remaining task count (red) or checkmark (green) when all done
 - **Side panel:** Quick task status, check-in buttons, recent words
 - **Practices history:** Browse daily records by date
-- **Weekly summary:** Completion rates, perfect days, words learned, avg writing score
+- **Weekly summary:** Completion rates, perfect days, words learned, avg writing score, avg speaking score
 - **Data export:** Download all data as JSON from Settings
 
 ## Build Commands
