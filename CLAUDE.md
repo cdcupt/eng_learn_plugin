@@ -42,6 +42,8 @@ src/
 │   ├── constants.ts                # Writing topics
 │   ├── api/nyt.ts                  # NYT article client
 │   ├── api/claude.ts               # AI client + TTS + ASR wrappers
+│   ├── crypto.ts                   # AES-GCM encryption (Web Crypto API)
+│   ├── configExport.ts             # Config export/import with sensitive field stripping
 │   └── utils/                      # Date, scoring helpers
 └── assets/                         # Extension icons
 ```
@@ -95,6 +97,14 @@ All 5 practice modules follow a consistent pattern:
 - **Speaking:** Counts unique prompts only (retries don't inflate completion count); averages best score per prompt
 - **Listening:** Sessions persisted to `listening:{date}` storage key; audio URLs are not persisted (regenerated on replay)
 - **Writing:** History loaded from `writingIndex` + individual `writing:{id}` entries
+
+## Config Sharing
+
+Settings can be exported/imported via the Settings page with two modes:
+- **Share** — encrypted (AES-256-GCM), sensitive fields (API keys/tokens) stripped. File extension: `.elc`
+- **Backup** — encrypted, all fields included. File extension: `.elc`
+
+Encryption uses Web Crypto API (PBKDF2 → AES-GCM), no external dependencies. Logic lives in `shared/crypto.ts` and `shared/configExport.ts`.
 
 ## Important Notes
 
