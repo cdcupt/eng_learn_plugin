@@ -53,16 +53,15 @@ async function updateBadge() {
   const record = result[`day:${today}`] as DailyRecord | undefined;
 
   if (!record) {
-    chrome.action.setBadgeText({ text: "5" });
+    chrome.action.setBadgeText({ text: "4" });
     chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
     return;
   }
 
   let remaining = 0;
   if (!record.reading.completed) remaining++;
-  if (!record.writing.completed) remaining++;
+  if (!(record.writing.completed && record.speaking.completed)) remaining++;
   if (!record.vocabulary.completed) remaining++;
-  if (!record.speaking.completed) remaining++;
   if (!(record.listening?.completed)) remaining++;
 
   if (remaining === 0) {
